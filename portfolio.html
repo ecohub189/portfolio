@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PersonalOS</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap'); /* For Terminal */
+
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --window-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            --accent-color: #007AFF;
+            --danger-color: #ff3b30;
+            --success-color: #34c759;
+            --text-color: #333;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background: url('https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80') no-repeat center center fixed;
+            background-size: cover;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Top Bar */
+        #topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #fff;
+            padding: 0 16px;
+            box-sizing: border-box;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 10000;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #topbar-left { display: flex; gap: 16px; }
+        #system-btn { font-weight: 700; cursor: pointer; }
+
+        /* Desktop Area */
+        #desktop {
+            padding-top: 48px;
+            padding-left: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        /* Desktop Icons */
+        .app-icon {
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+
+        .app-icon:hover { background-color: rgba(255, 255, 255, 0.1); }
+        
+        .app-icon.selected {
+            background-color: rgba(0, 122, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(4px);
+        }
+
+        .app-icon img, .app-icon svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 4px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        }
+
+        .app-icon p {
+            margin: 0;
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            font-weight: 500;
+        }
+
+        /* Windows */
+        .window {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: var(--window-shadow);
+            overflow: hidden;
+            min-width: 300px;
+            min-height: 200px;
+            display: none; /* Hidden by default */
+            /* Animation handled by JS class toggling or inline styles */
+        }
+
+        .window-header {
+            height: 36px;
+            background: rgba(230, 230, 230, 0.5);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            cursor: default;
+            flex-shrink: 0;
+        }
+        
+        .window-drag-area {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+        }
+        .window-drag-area:active { cursor: grabbing; }
+
+        .header-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #444;
+            pointer-events: none;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 6px;
+            position: absolute;
+            left: 12px;
+        }
+
+        .control-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+        .close-btn { background-color: #ff5f56; }
+        .min-btn { background-color: #ffbd2e; }
+        .max-btn { background-color: #27c93f; }
+        .close-btn:hover { background-color: #ff3b30; }
+
+        .window-content {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            color: var(--text-color);
+            position: relative;
+        }
+
+        /* --- APP SPECIFIC STYLES --- */
+
+        /* Welcome App */
+        #welcome .window-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 16px 0;
+            border: 4px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn-link {
+            background-color: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 12px;
+            transition: background 0.2s;
+        }
+        .btn-link:hover { background-color: #0056b3; }
+
+        /* Notes App */
+        #notes { width: 750px; height: 550px; }
+        #notes .window-content { padding: 0; display: flex; height: 100%; }
+
+        .notes-sidebar {
+            width: 240px;
+            background: rgba(240, 242, 245, 0.7);
+            border-right: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            gap: 8px;
+        }
+        .search-bar {
+            flex: 1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.1);
+            font-size: 12px;
+            background: rgba(255,255,255,0.6);
+            outline: none;
+        }
+        .add-note-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .notes-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .note-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .note-item:hover { background: rgba(255,255,255,0.4); }
+        .note-item.active {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.05);
+        }
+        .note-title-preview { font-weight: 600; font-size: 13px; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .note-date-preview { font-size: 11px; color: #888; margin: 0; }
+        
+        .notes-main { flex: 1; display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.3); }
+        .notes-toolbar { padding: 12px 24px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .note-status { font-size: 12px; color: #888; font-style: italic; }
+        .tool-actions { display: flex; gap: 12px; }
+        .icon-btn {
+            background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; color: #555;
+        }
+        .icon-btn:hover { background: rgba(0,0,0,0.05); }
+        .icon-btn svg { width: 18px; height: 18px; }
+        .icon-btn.delete-btn:hover { color: var(--danger-color); background: rgba(255, 59, 48, 0.1); }
+        .icon-btn.save-btn { color: var(--success-color); }
+        .notes-editor-container { flex: 1; padding: 24px 32px; overflow-y: auto; }
+        
+        #noteTitleDisplay { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #222; border: none; background: transparent; width: 100%; outline: none; }
+        #noteMetaDisplay { font-size: 12px; color: #888; margin-bottom: 24px; }
+        #notesContent { outline: none; line-height: 1.6; min-height: 200px; }
+        .editing #noteTitleDisplay, .editing #notesContent { background: rgba(255,255,255,0.5); border-radius: 4px; box-shadow: 0 0 0 2px rgba(0,122,255,0.1); padding: 4px 8px; }
+        blockquote { border-left: 3px solid var(--accent-color); margin: 16px 0; padding-left: 16px; color: #555; font-style: italic; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 0 4px 4px 0; }
+        img { max-width: 100%; border-radius: 8px; }
+
+        /* Terminal App */
+        #terminal {
+            width: 600px;
+            height: 400px;
+            background: rgba(30, 30, 30, 0.95);
+            color: #33ff00;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        #terminal .window-header {
+            background: #2d2d2d;
+            border-bottom: 1px solid #444;
+        }
+        
+        #terminal .header-title { color: #bbb; }
+        
+        #terminal .window-content {
+            padding: 10px;
+            background: #1e1e1e;
+            overflow-y: auto;
+            cursor: text;
+        }
+
+        .terminal-output { margin-bottom: 10px; line-height: 1.5; font-size: 14px; }
+        .terminal-line { margin-bottom: 4px; }
+        .terminal-success { color: #34c759; }
+        .terminal-error { color: #ff3b30; }
+        .terminal-info { color: #007AFF; }
+
+        .input-line { display: flex; align-items: center; }
+        .prompt { margin-right: 8px; color: #33ff00; font-weight: bold; }
+        
+        #terminalInput {
+            background: transparent;
+            border: none;
+            color: #fff;
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
+        /* Scanline effect */
+        #terminal::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        /* Projects App (NEW!) */
+        #projects {
+            width: 700px;
+            height: 500px;
+        }
+        
+        #projects .window-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .project-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .project-header {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .project-body {
+            padding: 16px;
+            flex-grow: 1;
+        }
+        
+        .project-body p {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+        }
+        
+        .project-tag {
+            display: inline-block;
+            background-color: #e6f7ff;
+            color: var(--accent-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-right: 6px;
+        }
+        
+        .project-link {
+            display: block;
+            text-align: right;
+            margin-top: 10px;
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div id="topbar">
+        <div id="topbar-left">
+            <span id="system-btn"> PersonalOS</span>
+            <span>File</span>
+            <span>Edit</span>
+            <span>View</span>
+        </div>
+        <div id="topbar-right">
+            <span id="timeElement">12:00 PM</span>
+        </div>
+    </div>
+
+    <!-- Desktop Icons -->
+    <div id="desktop">
+        <!-- Welcome Icon -->
+        <div class="app-icon" id="icon-welcome" onclick="handleIconTap(this)" ondblclick="openWindow('welcome')">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="#4A90E2"/>
+                <path d="M32 16C23.1634 16 16 23.1634 16 32C16 40.8366 23.1634 48 32 48C40.8366 48 48 40.8366 48 32C48 23.1634 40.8366 16 32 16ZM32 44C25.3726 44 20 38.6274 20 32C20 25.3726 25.3726 20 32 20C38.6274 20 44 25.3726 44 32C44 38.6274 38.6274 44 32 44Z" fill="white" fill-opacity="0.2"/>
+                <path d="M32 24L34.15 29.5H40L35.5 33L37.5 39L32 35.5L26.5 39L28.5 33L24 29.5H29.85L32 24Z" fill="white"/>
+            </svg>
+            <p>Welcome</p>
+        </div>
+
+        <!-- Notes Icon -->
+        <div class="app-icon" id="icon-notes" onclick="handleIconTap(this)" ondblclick="openWindow('notes')">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="12" y="8" width="40" height="48" rx="4" fill="#FFD93D"/>
+                <rect x="12" y="8" width="10" height="48" rx="4" fill="#FFC107"/>
+                <circle cx="17" cy="16" r="2" fill="#E6A800"/>
+                <circle cx="17" cy="32" r="2" fill="#E6A800"/>
+                <circle cx="17" cy="48" r="2" fill="#E6A800"/>
+                <rect x="28" y="16" width="18" height="2" rx="1" fill="#888"/>
+                <rect x="28" y="24" width="18" height="2" rx="1" fill="#888"/>
+                <rect x="28" y="32" width="18" height="2" rx="1" fill="#888"/>
+            </svg>
+            <p>Notes</p>
+        </div>
+
+        <!-- Terminal Icon -->
+        <div class="app-icon" id="icon-terminal" onclick="handleIconTap(this)" ondblclick="openWindow('terminal')">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="8" y="12" width="48" height="40" rx="4" fill="#333"/>
+                <rect x="8" y="12" width="48" height="12" rx="4" fill="#444"/>
+                <circle cx="14" cy="18" r="2" fill="#FF5F56"/>
+                <circle cx="20" cy="18" r="2" fill="#FFBD2E"/>
+                <circle cx="26" cy="18" r="2" fill="#27C93F"/>
+                <path d="M16 34L22 38L16 42" stroke="#33FF00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="24" y1="42" x2="32" y2="42" stroke="#33FF00" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <p>Terminal</p>
+        </div>
+        
+        <!-- Projects Icon (NEW!) -->
+        <div class="app-icon" id="icon-projects" onclick="handleIconTap(this)" ondblclick="openWindow('projects')">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="8" y="18" width="48" height="34" rx="4" fill="#A259FF"/>
+                <path d="M16 16V10C16 8.89543 16.8954 8 18 8H46C47.1046 8 48 8.89543 48 10V16" stroke="#904CD0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="18" y="28" width="12" height="12" rx="2" fill="#FFFFFF"/>
+                <rect x="34" y="28" width="12" height="12" rx="2" fill="#FFFFFF"/>
+                <rect x="18" y="44" width="28" height="2" rx="1" fill="#FFFFFF"/>
+            </svg>
+            <p>Projects</p>
+        </div>
+    </div>
+
+    <!-- Welcome Window -->
+    <div class="window" id="welcome" style="top: 100px; left: 100px; width: 400px; z-index: 10;">
+        <div class="window-header" id="welcomeheader">
+            <div class="window-controls">
+                <div class="control-btn close-btn" onclick="closeWindow('welcome')"></div>
+                <div class="control-btn min-btn"></div>
+                <div class="control-btn max-btn"></div>
+            </div>
+            <div class="window-drag-area"><span class="header-title">Welcome</span></div>
+        </div>
+        <div class="window-content">
+            <h1>Hello World!</h1>
+            <p>Welcome to my PersonalOS.</p>
+            <img src="./shlok.jpeg" alt="Profile" class="profile-pic">
+            <p>I'm a developer building cool things on the web.</p>
+            <br>
+            <a href="https://www.linkedin.com/in/shlok-tanna-878352244/" class="btn-link">Connect on LinkedIn</a>
+        </div>
+    </div>
+
+    <!-- Notes Window -->
+    <div class="window" id="notes" style="top: 150px; left: 150px; z-index: 10;">
+        <div class="window-header" id="notesheader">
+            <div class="window-controls">
+                <div class="control-btn close-btn" onclick="closeWindow('notes')"></div>
+                <div class="control-btn min-btn"></div>
+                <div class="control-btn max-btn"></div>
+            </div>
+            <div class="window-drag-area"><span class="header-title">Hacker Notes</span></div>
+        </div>
+        <div class="window-content">
+            <div class="notes-sidebar">
+                <div class="sidebar-header">
+                    <input type="text" id="noteSearch" class="search-bar" placeholder="Search notes..." onkeyup="filterNotes()">
+                    <button class="add-note-btn" onclick="createNewNote()">+</button>
+                </div>
+                <div class="notes-list" id="notesList"></div>
+            </div>
+            <div class="notes-main">
+                <div class="notes-toolbar">
+                    <span class="note-status" id="noteStatus">Read Only</span>
+                    <div class="tool-actions">
+                        <button class="icon-btn delete-btn" onclick="deleteCurrentNote()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                        <button class="icon-btn" id="editBtn" onclick="toggleEditMode()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                        <button class="icon-btn save-btn" id="saveBtn" onclick="saveCurrentNote()" style="display:none;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
+                    </div>
+                </div>
+                <div class="notes-editor-container" id="editorContainer">
+                    <input type="text" id="noteTitleDisplay" readonly placeholder="Note Title">
+                    <p id="noteMetaDisplay"></p>
+                    <div id="notesContent" contenteditable="false"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Window -->
+    <div class="window" id="terminal" style="top: 200px; left: 200px; z-index: 10;">
+        <div class="window-header" id="terminalheader">
+            <div class="window-controls">
+                <div class="control-btn close-btn" onclick="closeWindow('terminal')"></div>
+                <div class="control-btn min-btn"></div>
+                <div class="control-btn max-btn"></div>
+            </div>
+            <div class="window-drag-area"><span class="header-title">Terminal</span></div>
+        </div>
+        <div class="window-content" onclick="document.getElementById('terminalInput').focus()">
+            <div id="terminalOutput" class="terminal-output">
+                <div class="terminal-line">Welcome to PersonalOS Terminal v1.0.0</div>
+                <div class="terminal-line">Type <span class="terminal-info">'help'</span> to see available commands.</div>
+            </div>
+            <div class="input-line">
+                <span class="prompt">root@os:~$</span>
+                <input type="text" id="terminalInput" autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Projects Window (NEW!) -->
+    <div class="window" id="projects" style="top: 250px; left: 250px; z-index: 10;">
+        <div class="window-header" id="projectsheader">
+            <div class="window-controls">
+                <div class="control-btn close-btn" onclick="closeWindow('projects')"></div>
+                <div class="control-btn min-btn"></div>
+                <div class="control-btn max-btn"></div>
+            </div>
+            <div class="window-drag-area"><span class="header-title">Projects</span></div>
+        </div>
+        <div class="window-content">
+            <h2>Recent Work</h2>
+            <div class="projects-grid">
+                
+                <div class="project-card">
+                    <div class="project-header" style="background-color: #34c759;">OS Simulator</div>
+                    <div class="project-body">
+                        <p>A personal operating system environment built purely in HTML, CSS, and vanilla JS. Features drag-and-drop windows and custom app icons.</p>
+                        <div class="project-tags">
+                            <span class="project-tag">HTML</span>
+                            <span class="project-tag">CSS</span>
+                            <span class="project-tag">JavaScript</span>
+                        </div>
+                        <a href="#" class="project-link">View Demo &rarr;</a>
+                    </div>
+                </div>
+
+                <div class="project-card">
+                    <div class="project-header">Simple Weather API</div>
+                    <div class="project-body">
+                        <p>A serverless function that consumes a public weather API and returns a simplified JSON payload, optimized for mobile consumption.</p>
+                        <div class="project-tags">
+                            <span class="project-tag">Node.js</span>
+                            <span class="project-tag">Serverless</span>
+                            <span class="project-tag">API</span>
+                        </div>
+                        <a href="#" class="project-link">View Code &rarr;</a>
+                    </div>
+                </div>
+                
+                <div class="project-card">
+                    <div class="project-header" style="background-color: #ffbd2e;">Interactive Resume</div>
+                    <div class="project-body">
+                        <p>A dynamic, single-page application built with React, allowing users to filter experience by skill and time period.</p>
+                        <div class="project-tags">
+                            <span class="project-tag">React</span>
+                            <span class="project-tag">Tailwind CSS</span>
+                            <span class="project-tag">SPA</span>
+                        </div>
+                        <a href="#" class="project-link">View Live &rarr;</a>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- 1. System Logic ---
+        function updateTime() {
+            const now = new Date();
+            document.querySelector("#timeElement").innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // --- 2. Window Manager ---
+        let biggestIndex = 100;
+        
+        // This function replaces the manual calls to makeDraggable and adds click-to-front logic
+        function setupApp(appId) {
+            const win = document.getElementById(appId);
+            
+            if (!win) return;
+
+            // Make draggable
+            makeDraggable(win);
+            
+            // Add click-to-front listener
+            win.addEventListener('mousedown', () => bringToFront(win));
+        }
+
+        function bringToFront(element) {
+            biggestIndex++;
+            element.style.zIndex = biggestIndex;
+            document.getElementById('topbar').style.zIndex = 10000;
+        }
+
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            win.style.display = 'flex';
+            bringToFront(win);
+            // Reset animation
+            win.style.animation = 'none';
+            win.offsetHeight; 
+            win.style.animation = 'popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            
+            // App specific focus logic
+            if(id === 'terminal') {
+                setTimeout(() => document.getElementById('terminalInput').focus(), 100);
+            }
+        }
+
+        function closeWindow(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function makeDraggable(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const header = document.getElementById(elmnt.id + "header");
+            const dragArea = header.querySelector('.window-drag-area') || header;
+
+            dragArea.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+                bringToFront(elmnt);
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // Initialize All Apps
+        setupApp("welcome");
+        setupApp("notes");
+        setupApp("terminal");
+        setupApp("projects"); // Initialize new app
+
+        // --- 3. Icon Logic ---
+        let selectedIcon = null;
+
+        function handleIconTap(element) {
+            if (selectedIcon && selectedIcon !== element) selectedIcon.classList.remove('selected');
+            
+            if (element.classList.contains('selected')) {
+                element.classList.remove('selected');
+                selectedIcon = null;
+            } else {
+                element.classList.add('selected');
+                selectedIcon = element;
+            }
+        }
+
+        document.getElementById('desktop').addEventListener('click', (e) => {
+            if (e.target.id === 'desktop') {
+                if (selectedIcon) {
+                    selectedIcon.classList.remove('selected');
+                    selectedIcon = null;
+                }
+            }
+        });
+
+        // --- 4. Notes App Logic ---
+        const defaultNotes = [
+            { id: 1, title: "Welcome Note", date: "10/24/2025", content: "<h2>Welcome</h2><p>Safe place for thoughts.</p>" },
+            { id: 2, title: "Ideas", date: "10/25/2025", content: "<p>1. Web OS</p><p>2. Terminal App</p><p>3. Projects App</p>" }
+        ];
+        let notesData = JSON.parse(localStorage.getItem('personalOS_notes')) || defaultNotes;
+        let currentNoteIndex = 0;
+        let isEditing = false;
+
+        function saveToLocalStorage() { localStorage.setItem('personalOS_notes', JSON.stringify(notesData)); }
+
+        function renderNotesList(filterText = '') {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '';
+            notesData.forEach((note, index) => {
+                if (filterText && !note.title.toLowerCase().includes(filterText.toLowerCase())) return;
+                const noteEl = document.createElement('div');
+                noteEl.className = `note-item ${index === currentNoteIndex ? 'active' : ''}`;
+                noteEl.innerHTML = `<p class="note-title-preview">${note.title}</p><p class="note-date-preview">${note.date}</p>`;
+                noteEl.addEventListener('click', () => {
+                    if (isEditing && !confirm("Discard changes?")) return;
+                    toggleEditMode(false);
+                    currentNoteIndex = index;
+                    renderNotesList(document.getElementById('noteSearch').value);
+                    displayCurrentNote();
+                });
+                list.appendChild(noteEl);
+            });
+        }
+
+        function displayCurrentNote() {
+            if (notesData.length === 0) {
+                document.getElementById('notesContent').innerHTML = "<p>No notes.</p>"; return;
+            }
+            const note = notesData[currentNoteIndex];
+            document.getElementById('noteTitleDisplay').value = note.title;
+            document.getElementById('noteMetaDisplay').innerText = `Last edited: ${note.date}`;
+            document.getElementById('notesContent').innerHTML = note.content;
+        }
+
+        function toggleEditMode(forceState) {
+            isEditing = forceState !== undefined ? forceState : !isEditing;
+            const container = document.getElementById('editorContainer');
+            const titleInput = document.getElementById('noteTitleDisplay');
+            const contentDiv = document.getElementById('notesContent');
+            const editBtn = document.getElementById('editBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const status = document.getElementById('noteStatus');
+
+            if (isEditing) {
+                container.classList.add('editing');
+                titleInput.removeAttribute('readonly');
+                contentDiv.setAttribute('contenteditable', 'true');
+                contentDiv.focus();
+                editBtn.style.display = 'none'; saveBtn.style.display = 'flex';
+                status.innerText = 'Editing...'; status.style.color = 'var(--accent-color)';
+            } else {
+                container.classList.remove('editing');
+                titleInput.setAttribute('readonly', 'true');
+                contentDiv.setAttribute('contenteditable', 'false');
+                editBtn.style.display = 'flex'; saveBtn.style.display = 'none';
+                status.innerText = 'Read Only'; status.style.color = '#888';
+            }
+        }
+
+        function saveCurrentNote() {
+            if (notesData.length === 0) return;
+            notesData[currentNoteIndex].title = document.getElementById('noteTitleDisplay').value;
+            notesData[currentNoteIndex].content = document.getElementById('notesContent').innerHTML;
+            notesData[currentNoteIndex].date = new Date().toLocaleDateString();
+            saveToLocalStorage();
+            renderNotesList();
+            displayCurrentNote();
+            toggleEditMode(false);
+        }
+
+        function createNewNote() {
+            notesData.unshift({ id: Date.now(), title: "New Note", date: new Date().toLocaleDateString(), content: "..." });
+            saveToLocalStorage(); currentNoteIndex = 0; renderNotesList(); displayCurrentNote(); toggleEditMode(true);
+        }
+
+        function deleteCurrentNote() {
+            if (notesData.length > 0 && confirm("Delete?")) {
+                notesData.splice(currentNoteIndex, 1);
+                saveToLocalStorage();
+                currentNoteIndex = Math.max(0, notesData.length - 1);
+                renderNotesList(); displayCurrentNote();
+            }
+        }
+        
+        function filterNotes() { renderNotesList(document.getElementById('noteSearch').value); }
+
+        renderNotesList(); displayCurrentNote();
+
+        // --- 5. TERMINAL APP LOGIC ---
+        const terminalInput = document.getElementById('terminalInput');
+        const terminalOutput = document.getElementById('terminalOutput');
+        
+        const validApps = ['welcome', 'notes', 'terminal', 'projects']; // Updated app list
+
+        const commands = {
+            help: { desc: "Lists available commands", action: () => printOutput("Available commands: help, ls, open [app], clear, date, whoami, exit") },
+            ls: { desc: "Lists installed applications", action: () => printOutput(`Applications:\n - ${validApps.join('\n - ')}`) },
+            clear: { desc: "Clears terminal", action: () => { terminalOutput.innerHTML = ''; } },
+            date: { desc: "Shows current date", action: () => printOutput(new Date().toString()) },
+            whoami: { desc: "Current user", action: () => printOutput("<span class='terminal-success'>root</span>") },
+            exit: { desc: "Closes terminal", action: () => closeWindow('terminal') },
+            open: { 
+                desc: "Opens an application", 
+                action: (args) => {
+                    const app = args[0];
+                    if(!app) return printOutput("Usage: open [app_name]", "terminal-error");
+                    
+                    if(validApps.includes(app)) {
+                        openWindow(app);
+                        printOutput(`Opening ${app}...`, "terminal-success");
+                    } else {
+                        printOutput(`App '${app}' not found. Valid apps: ${validApps.join(', ')}`, "terminal-error");
+                    }
+                }
+            }
+        };
+
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const input = terminalInput.value.trim();
+                if (input) {
+                    // Print previous command
+                    printOutput(`<span class="prompt">root@os:~$</span> ${input}`);
+                    
+                    // Parse command
+                    const [cmd, ...args] = input.split(' ');
+                    
+                    if (commands[cmd]) {
+                        commands[cmd].action(args);
+                    } else {
+                        printOutput(`Command not found: ${cmd}. Type 'help' for list.`, "terminal-error");
+                    }
+                }
+                terminalInput.value = '';
+                // Scroll to bottom
+                document.getElementById('terminal').querySelector('.window-content').scrollTop = document.getElementById('terminal').querySelector('.window-content').scrollHeight;
+            }
+        });
+
+        function printOutput(text, className = "") {
+            const line = document.createElement('div');
+            line.className = `terminal-line ${className}`;
+            line.innerHTML = text;
+            terminalOutput.appendChild(line);
+        }
+
+    </script>
+</body>
+</html>
